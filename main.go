@@ -15,7 +15,9 @@ type Msg struct {
 	err      error
 }
 
-func executeCmd(index int, hostname string) *Msg {
+var responseChannel = make(chan *Msg, 10)
+
+func executeCmd(index int, hostname string) {
 	resp, err := http.Get(fmt.Sprint("http://www.", hostname))
 	//	if err != nil {
 	//		fmt.Println(err)
@@ -23,7 +25,7 @@ func executeCmd(index int, hostname string) *Msg {
 	//	}
 	defer resp.Body.Close()
 
-	return &Msg{err: err, hostname: fmt.Sprint(index, "] ", hostname, ": ", resp.Status)}
+	responseChannel <- &Msg{err: err, hostname: fmt.Sprint(index, "] ", hostname, ": ", resp.Status)}
 	//	return fmt.Sprint(index, "] ", hostname, ": ", resp.Status)
 
 	//	body, err := ioutil.ReadAll(resp.Body)
@@ -46,7 +48,7 @@ func start() {
 		"shokoeshka.com",
 	} //os.Args[2:]
 	// записываем результаты в буфферизированный список
-	responseChannel := make(chan *Msg, 10)
+
 	//	results := make(chan string, 10)
 	// через 5 сек в канал timeout придет сообщение
 	timeout := time.After(time.Second * 5)
@@ -54,9 +56,7 @@ func start() {
 	// запускаем по одной goroutine на сервер
 	for index, hostname := range hosts {
 		//		fmt.Println(index)
-		go func(index int, hostname string) {
-			responseChannel <- executeCmd(index, hostname)
-		}(index, hostname)
+		go executeCmd(index, hostname)
 		//		fmt.Println(executeCmd(index, hostname))
 	}
 	// соберем результаты со всех серверов или напишем "Время вышло"
