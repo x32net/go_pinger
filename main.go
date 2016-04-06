@@ -17,7 +17,7 @@ type Msg struct {
 
 var responseChannel = make(chan *Msg, 10)
 
-func executeCmd(index int, hostname string) {
+func executeCmd(index int, hostname string, data *Msg) {
 	resp, err := http.Get(fmt.Sprint("http://www.", hostname))
 	//	if err != nil {
 	//		fmt.Println(err)
@@ -25,7 +25,7 @@ func executeCmd(index int, hostname string) {
 	//	}
 	defer resp.Body.Close()
 
-	responseChannel <- &Msg{err: err, hostname: fmt.Sprint(index, "] ", hostname, ": ", resp.Status)}
+	responseChannel <- &Msg{err: err, hostname: fmt.Sprint(data.hostname, "] ", hostname, ": ", resp.Status)}
 	//	return fmt.Sprint(index, "] ", hostname, ": ", resp.Status)
 
 	//	body, err := ioutil.ReadAll(resp.Body)
@@ -35,6 +35,8 @@ func executeCmd(index int, hostname string) {
 	//	}
 	//	return string(body)
 }
+
+var list = []Msg{{}}
 
 func start() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -56,7 +58,10 @@ func start() {
 	// запускаем по одной goroutine на сервер
 	for index, hostname := range hosts {
 		//		fmt.Println(index)
-		go executeCmd(index, hostname)
+		list[index].hostname = fmt.Sprint(index)
+		//		conv.Data.SessionID = fmt.Sprint(index)
+		go executeCmd(index, hostname, &list[index])
+		list = append(list, Msg{})
 		//		fmt.Println(executeCmd(index, hostname))
 	}
 	// соберем результаты со всех серверов или напишем "Время вышло"
