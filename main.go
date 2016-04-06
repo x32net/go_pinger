@@ -8,15 +8,24 @@ import (
 	"time"
 )
 
-func executeCmd(index int, hostname string) string {
+type Msg struct {
+	hostname string
+	stdout   string
+	stderr   string
+	err      error
+}
+
+func executeCmd(index int, hostname string) *Msg {
 	resp, err := http.Get(fmt.Sprint("http://www.", hostname))
-	if err != nil {
-		fmt.Println(err)
-		return ""
-	}
+	//	if err != nil {
+	//		fmt.Println(err)
+	//		return ""
+	//	}
 	defer resp.Body.Close()
 
-	return fmt.Sprint(index, "] ", hostname, ": ", resp.Status)
+	return &Msg{err: err, hostname: fmt.Sprint(index, "] ", hostname, ": ", resp.Status)}
+	//	return fmt.Sprint(index, "] ", hostname, ": ", resp.Status)
+
 	//	body, err := ioutil.ReadAll(resp.Body)
 	//	if err != nil {
 	//		fmt.Println(err)
@@ -25,7 +34,7 @@ func executeCmd(index int, hostname string) string {
 	//	return string(body)
 }
 
-func main() {
+func start() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	fmt.Println("NumCPU", runtime.NumCPU())
 	hosts := []string{
@@ -37,7 +46,8 @@ func main() {
 		"shokoeshka.com",
 	} //os.Args[2:]
 	// записываем результаты в буфферизированный список
-	results := make(chan string, 10)
+	responseChannel := make(chan *Msg, 10)
+	//	results := make(chan string, 10)
 	// через 5 сек в канал timeout придет сообщение
 	timeout := time.After(time.Second * 5)
 	timeStart := time.Now()
@@ -45,15 +55,15 @@ func main() {
 	for index, hostname := range hosts {
 		//		fmt.Println(index)
 		go func(index int, hostname string) {
-			results <- executeCmd(index, hostname)
+			responseChannel <- executeCmd(index, hostname)
 		}(index, hostname)
 		//		fmt.Println(executeCmd(index, hostname))
 	}
 	// соберем результаты со всех серверов или напишем "Время вышло"
 	for i := 0; i < len(hosts); i++ {
 		select {
-		case res := <-results:
-			fmt.Println(res)
+		case msg := <-responseChannel:
+			fmt.Println(msg.hostname)
 		case <-timeout:
 			fmt.Println("Time out")
 			return
@@ -61,4 +71,8 @@ func main() {
 	}
 	timeTotal := time.Since(timeStart)
 	fmt.Println(timeTotal) // 564.789389ms / 3.861487534s
+}
+
+func main() {
+	start()
 }
